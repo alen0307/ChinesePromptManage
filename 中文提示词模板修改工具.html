@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>JSON 数组编辑器（纯静态）</title>
+  <style>
+    body{font-family:system-ui, sans-serif; margin:0; display:flex; height:100vh}
+    #left{flex:1 1 70%; border-right:1px solid #ccc; overflow-y:auto; padding:8px}
+    #right{flex:1 1 30%; display:flex; flex-direction:column}
+    textarea{flex:1; font-size:18px; font-family:Consolas,monospace; padding:8px}
+    .grp{border:1px solid #999; border-radius:6px; margin:4px 0}
+    .hdr{background:LightCyan; padding:4px 6px; display:flex; align-items:center; justify-content:space-between}
+    .vals{display:flex; flex-wrap:wrap; gap:4px; padding:4px}
+    .val{display:flex; align-items:center}
+    .val input{border:none; border-bottom:1px solid #999; width:100px; font-size:16px}
+    button{cursor:pointer; margin-left:4px}
+  </style>
+</head>
+<body>
+  <div id="left">
+    <input type="file" accept=".json" id="fileInput">
+    <button id="saveBtn">另存为 JSON</button>
+    <button id="addGrpBtn">+ 新增分组</button>
+    <div id="groups"></div>
+  </div>
+
+  <div id="right">
+    <button id="backfillBtn">回填（Ctrl+Enter 也可）</button>
+    <textarea id="bigEdit" placeholder="右侧大编辑框"></textarea>
+  </div>
+
+  <script>
+  let model = {};
+  let activeInput = null;
+
+  fileInput.onchange = async e => {
+    const txt = await e.target.files[0].text();
+    model = JSON.parse(txt);
+    render();
+  };
+  saveBtn.onclick = () => {
+    const blob = new Blob([JSON.stringify(model, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '中文提示词模板.json';
+    a.click();
+  };
+
+  function render() {
+    groups.innerHTML = '';
+    Object.entries(model).forEach(([key, arr]) => {
+      const grp = document.createElement('div'); grp.className = 'grp';
+      const hdr = document.createElement('div'); hdr.className = 'hdr';
+      hdr.innerHTML = `<span>${key}</span>
+        <button onclick="addLine('${key}')" style="margin-left:6px">+ 一行</button>
+  <div style="margin-left:auto">
+    <button onclick="moveUp('${key}')">▲</button>
+    <button onclick="moveDown('${key}')">▼</button>
+    <button onclick="delGrp('${key}')">删除分组</button>
+    <button onclick="insertTag('${key}')">插入{${key}}</button>
+  </div>`;
+      const vals = document.createElement('div'); vals.className = 'vals';
+      arr.forEach((v,i) => {
+        const dv = document.createElement('div'); dv.className = 'val';
+        dv.innerHTML = `<input value="${v}"
+           onfocus="bigEdit.value=this.value; activeInput=this"
+           oninput="
+              activeInput=this;
+              bigEdit.value=this.value;
+              const [k,idx]=findPos(this);
+              model[k][idx]=this.value;">
+          <button onclick="delLine('${key}',${i})">删</button>`;
+        vals.appendChild(dv);
+      });
+      grp.append(hdr, vals);
+      groups.appendChild(grp);
+    });
+  }
+
+  window.addLine = key => { model[key].push(''); render(); };
+  window.delLine = (key,idx) => { model[key].splice(idx,1); render(); };
+  window.delGrp  = key => { if(confirm(`删除分组【${key}】？`)){delete model[key]; render();} };
+
+  addGrpBtn.onclick = () => {
+    const name = prompt('新分组名：');
+    if(name && !model[name]) { model[name]=['']; render(); }
+  };
+
+  backfillBtn.onclick = () => {
+    if(!activeInput) return;
+    const [k, i] = findPos(activeInput);
+    model[k][i] = bigEdit.value;
+    activeInput.value = bigEdit.value;
+  };
+  bigEdit.onkeydown = e => {
+    if(e.ctrlKey && e.key==='Enter') { backfillBtn.click(); e.preventDefault(); }
+  };
+  function findPos(input){
+    const grp = input.closest('.grp');
+    const key = grp.querySelector('.hdr span').textContent;
+    const idx = [...grp.querySelectorAll('.val input')].indexOf(input);
+    return [key, idx];
+  }
+  // 把当前分组 key 上移
+window.moveUp = key => {
+  const keys = Object.keys(model);
+  const idx = keys.indexOf(key);
+  if (idx === 0) return;                 // 最顶上
+  // 交换顺序
+  const newKeys = [...keys];
+  [newKeys[idx - 1], newKeys[idx]] = [newKeys[idx], newKeys[idx - 1]];
+  reorderModel(newKeys);
+};
+
+// 下移
+window.moveDown = key => {
+  const keys = Object.keys(model);
+  const idx = keys.indexOf(key);
+  if (idx === keys.length - 1) return;   // 最底下
+  const newKeys = [...keys];
+  [newKeys[idx], newKeys[idx + 1]] = [newKeys[idx + 1], newKeys[idx]];
+  reorderModel(newKeys);
+};
+
+// 通用：按 newKeys 顺序重建 model 对象
+function reorderModel(newKeys) {
+  const tmp = {};
+  newKeys.forEach(k => tmp[k] = model[k]);
+  model = tmp;
+  render();
+}
+// 把 {key} 插入大编辑框光标处
+window.insertTag = key => {
+  const tag = `{${key}}, `;          // 例如 {fruits}
+  const ta = bigEdit;
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const orig  = ta.value;
+  ta.value = orig.slice(0, start) + tag + orig.slice(end);
+  // 光标移到插入内容末尾
+  ta.selectionStart = ta.selectionEnd = start + tag.length;
+  ta.focus();
+};
+</script>
+</body>
+</html>

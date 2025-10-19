@@ -1,0 +1,3 @@
+from .中文提示词模版工具 import  NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
+
+
