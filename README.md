@@ -13,7 +13,8 @@
 
 所以为了避免误操作，双击“中文提示词模板修改工具.html”这个文件，它是一个网页，所以双击后会弹出浏览器打开一个json编辑页面
 
-![Uploading image.png…]()
+<img width="959" height="719" alt="image" src="https://github.com/user-attachments/assets/71164481-9544-49d2-84d3-2067852c9028" />
+
 
 用这个程序修改提示词库方便快捷，还不容易出错。
 
